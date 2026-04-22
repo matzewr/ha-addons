@@ -33,6 +33,22 @@ set +a
 export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 export PORT="${PORT:-3000}"
+
+# When running as a Home Assistant add-on with ingress enabled, discover the
+# real ingress entry path and forward it to Streamystats' basePath support.
+if [ -z "${NEXT_PUBLIC_BASE_PATH:-}" ] && [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+  ingress_entry="$({
+    curl -fsSL \
+      -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+      "http://supervisor/addons/self/info" || true;
+  } | tr -d '\n' | sed -n 's/.*"ingress_entry":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')"
+
+  if [ -n "${ingress_entry}" ]; then
+    export NEXT_PUBLIC_BASE_PATH="${ingress_entry}"
+    echo "Using detected ingress base path: ${NEXT_PUBLIC_BASE_PATH}"
+  fi
+fi
+
 export JOB_SERVER_URL="${JOB_SERVER_URL:-http://localhost:3005}"
 export POSTGRES_USER="${POSTGRES_USER:-postgres}"
 export POSTGRES_DB="${POSTGRES_DB:-streamystats}"
