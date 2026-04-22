@@ -2,7 +2,9 @@
 set -euo pipefail
 
 DATA_DIR="/data/streamystats"
-PGDATA="${PGDATA:-${DATA_DIR}/postgresql}"
+PERSISTENT_PGDATA="${DATA_DIR}/postgresql"
+RUNTIME_PGDATA="/var/lib/postgresql/data"
+PGDATA="${PGDATA:-${RUNTIME_PGDATA}}"
 SECRETS_FILE="${DATA_DIR}/secrets.env"
 
 generate_hex() {
@@ -10,10 +12,24 @@ generate_hex() {
 }
 
 mkdir -p "${DATA_DIR}"
-mkdir -p "${PGDATA}"
+mkdir -p "${PERSISTENT_PGDATA}"
+
+# Make sure PostgreSQL writes to persistent add-on storage so updates keep data.
+if [ -L "${RUNTIME_PGDATA}" ]; then
+  :
+elif [ -d "${RUNTIME_PGDATA}" ]; then
+  if [ -n "$(ls -A "${RUNTIME_PGDATA}" 2>/dev/null)" ] && [ -z "$(ls -A "${PERSISTENT_PGDATA}" 2>/dev/null)" ]; then
+    cp -a "${RUNTIME_PGDATA}/." "${PERSISTENT_PGDATA}/"
+  fi
+  rm -rf "${RUNTIME_PGDATA}"
+  ln -s "${PERSISTENT_PGDATA}" "${RUNTIME_PGDATA}"
+else
+  mkdir -p "$(dirname "${RUNTIME_PGDATA}")"
+  ln -s "${PERSISTENT_PGDATA}" "${RUNTIME_PGDATA}"
+fi
 
 if [ "$(id -u)" = "0" ]; then
-  chown -R 999:999 "${DATA_DIR}" "${PGDATA}"
+  chown -R 999:999 "${DATA_DIR}" "${PERSISTENT_PGDATA}"
 fi
 
 if [ ! -f "${SECRETS_FILE}" ]; then
