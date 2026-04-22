@@ -1,0 +1,22 @@
+name: Streamystats
+version: 0.1.0
+slug: streamystats
+description: Jellyfin analytics platform powered by Streamystats AIO.
+url: https://github.com/fredrikburmester/streamystats
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: services
+boot: auto
+stage: stable
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: Streamystats web UI
+webui: http://[HOST]:[PORT:3000]
+panel_title: Streamystats
+panel_icon: mdi:chart-line
+ingress: false
+host_network: false
+init: false
