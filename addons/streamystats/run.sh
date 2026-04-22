@@ -41,7 +41,8 @@ export SESSION_SECRET
 export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 export POSTGRES_HOST_AUTH_METHOD="${POSTGRES_HOST_AUTH_METHOD:-scram-sha-256}"
 export POSTGRES_INITDB_ARGS="${POSTGRES_INITDB_ARGS:---auth-host=scram-sha-256}"
-export DATABASE_URL="${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}}"
+# Always rebuild DATABASE_URL from current credentials so migrations and app use the same DB password.
+export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
 export PGDATA
 
 exec /app/entrypoint.sh
