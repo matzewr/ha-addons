@@ -1,5 +1,5 @@
 name: Streamystats
-version: 0.1.4
+version: 0.1.5
 slug: streamystats
 description: Jellyfin analytics platform powered by Streamystats AIO.
 url: https://github.com/fredrikburmester/streamystats

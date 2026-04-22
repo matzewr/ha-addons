@@ -43,22 +43,107 @@ set +a
 
 export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
-export PORT="${PORT:-3000}"
+export PORT="${PORT:-3001}"
 
-# When running as a Home Assistant add-on with ingress enabled, discover the
-# real ingress entry path and forward it to Streamystats' basePath support.
-if [ -z "${NEXT_PUBLIC_BASE_PATH:-}" ] && [ -n "${SUPERVISOR_TOKEN:-}" ]; then
-  ingress_entry="$({
+INGRESS_ENTRY=""
+if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+  INGRESS_ENTRY="$({
     curl -fsSL \
       -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-      "http://supervisor/addons/self/info" || true;
+      "http://supervisor/addons/self/info" || true
   } | tr -d '\n' | sed -n 's/.*"ingress_entry":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')"
-
-  if [ -n "${ingress_entry}" ]; then
-    export NEXT_PUBLIC_BASE_PATH="${ingress_entry}"
-    echo "Using detected ingress base path: ${NEXT_PUBLIC_BASE_PATH}"
-  fi
 fi
+
+if [ -n "${INGRESS_ENTRY}" ]; then
+  INGRESS_ENTRY="/${INGRESS_ENTRY#/}"
+  INGRESS_ENTRY="${INGRESS_ENTRY%/}"
+  export NEXT_PUBLIC_BASE_PATH="${INGRESS_ENTRY}"
+  echo "Detected ingress entry: ${INGRESS_ENTRY}"
+fi
+
+mkdir -p /run/nginx /tmp/nginx
+
+if [ -n "${INGRESS_ENTRY}" ]; then
+  cat >/tmp/nginx/nginx.conf <<EOF
+worker_processes 1;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  map \$http_upgrade \$connection_upgrade {
+    default upgrade;
+    '' close;
+  }
+
+  server {
+    listen 3000;
+    server_name _;
+
+    proxy_hide_header X-Frame-Options;
+
+    location = ${INGRESS_ENTRY} {
+      return 302 ${INGRESS_ENTRY}/;
+    }
+
+    location ^~ ${INGRESS_ENTRY}/ {
+      proxy_http_version 1.1;
+      proxy_set_header Host \$host;
+      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto \$scheme;
+      proxy_set_header X-Real-IP \$remote_addr;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection \$connection_upgrade;
+      proxy_pass http://127.0.0.1:3001;
+    }
+
+    location = / {
+      return 302 ${INGRESS_ENTRY}/;
+    }
+
+    location / {
+      return 302 ${INGRESS_ENTRY}\$request_uri;
+    }
+  }
+}
+EOF
+else
+  cat >/tmp/nginx/nginx.conf <<'EOF'
+worker_processes 1;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+  }
+
+  server {
+    listen 3000;
+    server_name _;
+
+    proxy_hide_header X-Frame-Options;
+
+    location / {
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
+      proxy_pass http://127.0.0.1:3001;
+    }
+  }
+}
+EOF
+fi
+
+nginx -c /tmp/nginx/nginx.conf
 
 export JOB_SERVER_URL="${JOB_SERVER_URL:-http://localhost:3005}"
 export POSTGRES_USER="${POSTGRES_USER:-postgres}"
