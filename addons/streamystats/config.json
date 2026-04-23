@@ -9,14 +9,20 @@
   "ports": {
     "3000/tcp": 3000
   },
-  "environment": {
+  "environment": {},
+  "map": ["config:rw", "share:rw"],
+  "options": {
     "POSTGRES_USER": "postgres",
     "POSTGRES_PASSWORD": "postgres",
     "POSTGRES_DB": "streamystats",
     "SESSION_SECRET": "your-session-secret",
     "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "your-encryption-key"
   },
-  "map": ["config:rw", "share:rw"],
-  "options": {},
-  "schema": {}
+  "schema": {
+    "POSTGRES_USER": "str",
+    "POSTGRES_PASSWORD": "str",
+    "POSTGRES_DB": "str",
+    "SESSION_SECRET": "str",
+    "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "str"
+  }
 }
