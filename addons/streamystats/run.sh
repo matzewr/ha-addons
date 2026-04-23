@@ -60,6 +60,16 @@ http {
     '' close;
   }
 
+  map $http_x_forwarded_proto $upstream_proto {
+    default $http_x_forwarded_proto;
+    '' $scheme;
+  }
+
+  map $http_x_forwarded_host $upstream_host {
+    default $http_x_forwarded_host;
+    '' $host;
+  }
+
   map $http_x_ingress_path $redirect_prefix {
     default "";
     ~^/api/hassio_ingress/.+ $http_x_ingress_path;
@@ -83,9 +93,10 @@ http {
 
     location ~ ^/api/hassio_ingress/([^/]+)/(.*)$ {
       proxy_http_version 1.1;
-      proxy_set_header Host $host;
+      proxy_set_header Host $upstream_host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Host $upstream_host;
+      proxy_set_header X-Forwarded-Proto $upstream_proto;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Ingress-Path /api/hassio_ingress/$1;
       proxy_set_header Upgrade $http_upgrade;
@@ -97,9 +108,10 @@ http {
     # Handle direct URL access and ingress requests where HA already strips prefix.
     location / {
       proxy_http_version 1.1;
-      proxy_set_header Host $host;
+      proxy_set_header Host $upstream_host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Host $upstream_host;
+      proxy_set_header X-Forwarded-Proto $upstream_proto;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
