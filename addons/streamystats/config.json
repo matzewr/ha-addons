@@ -1,0 +1,22 @@
+{
+  "name": "StreamyStats",
+  "version": "1.0.0",
+  "slug": "streamystats",
+  "description": "StreamyStats Home Assistant Add-on",
+  "arch": ["amd64", "armv7", "armhf"],
+  "startup": "services",
+  "boot": "auto",
+  "ports": {
+    "3000/tcp": 3000
+  },
+  "environment": {
+    "POSTGRES_USER": "postgres",
+    "POSTGRES_PASSWORD": "postgres",
+    "POSTGRES_DB": "streamystats",
+    "SESSION_SECRET": "your-session-secret",
+    "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "your-encryption-key"
+  },
+  "map": ["config:rw", "share:rw"],
+  "options": {},
+  "schema": {}
+}
