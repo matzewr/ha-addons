@@ -8,19 +8,20 @@ CONTAINER_CONFIG_DIR="/config"
 CONTAINER_GLUETUN_CONFIG_DIR="${CONTAINER_CONFIG_DIR}/gluetun"
 CONTAINER_NZBHYDRA2_CONFIG_DIR="${CONTAINER_CONFIG_DIR}/nzbhydra2"
 WG_CONFIG_FILE="${CONTAINER_GLUETUN_CONFIG_DIR}/wg0.conf"
+GLUETUN_VOLUME_NAME="ha_nzbhydra2_vpn_gluetun"
+NZBHYDRA2_VOLUME_NAME="ha_nzbhydra2_vpn_nzbhydra2"
 
-detect_host_config_dir() {
-  # Docker daemon resolves bind mounts on the host, not inside this add-on container.
-  local mount_root
-  mount_root="$(awk '$5 == "/config" { print $4; exit }' /proc/self/mountinfo || true)"
+sync_dir_to_volume() {
+  local source_dir="$1"
+  local volume_name="$2"
+  local temp_container
 
-  if [[ -n "${mount_root}" && "${mount_root}" == /* ]]; then
-    echo "${mount_root}"
-    return 0
-  fi
+  docker volume create "${volume_name}" >/dev/null
+  temp_container="$(docker create -v "${volume_name}:/target" alpine:3.20 sh -c 'sleep 300')"
 
-  # Fallback used by Home Assistant for addon_config storage.
-  echo "/addon_configs/nzbhydra2_vpn"
+  # Copy the add-on config directory into the Docker volume via API.
+  docker cp "${source_dir}/." "${temp_container}:/target/"
+  docker rm "${temp_container}" >/dev/null
 }
 
 if [[ ! -f "${OPTIONS_FILE}" ]]; then
@@ -31,13 +32,10 @@ fi
 TZ_VALUE="$(jq -r '.TZ // "UTC"' "${OPTIONS_FILE}")"
 WEBUI_PORT="$(jq -r '.WEBUI_PORT // 5076' "${OPTIONS_FILE}")"
 SERVER_COUNTRIES="$(jq -r '.SERVER_COUNTRIES // ""' "${OPTIONS_FILE}")"
-HOST_CONFIG_DIR="$(detect_host_config_dir)"
-HOST_GLUETUN_CONFIG_DIR="${HOST_CONFIG_DIR}/gluetun"
-HOST_NZBHYDRA2_CONFIG_DIR="${HOST_CONFIG_DIR}/nzbhydra2"
 
 mkdir -p "${STACK_DIR}" \
-         "${HOST_GLUETUN_CONFIG_DIR}" \
-         "${HOST_NZBHYDRA2_CONFIG_DIR}"
+         "${CONTAINER_GLUETUN_CONFIG_DIR}" \
+         "${CONTAINER_NZBHYDRA2_CONFIG_DIR}"
 
 if [[ ! -f "${WG_CONFIG_FILE}" ]]; then
   echo "[ERROR] WireGuard config not found: ${WG_CONFIG_FILE}"
@@ -45,7 +43,13 @@ if [[ ! -f "${WG_CONFIG_FILE}" ]]; then
   exit 1
 fi
 
-echo "[INFO] Host config directory for Docker bind mounts: ${HOST_CONFIG_DIR}"
+echo "[INFO] Synchronizing ${CONTAINER_GLUETUN_CONFIG_DIR} to Docker volume ${GLUETUN_VOLUME_NAME}"
+sync_dir_to_volume "${CONTAINER_GLUETUN_CONFIG_DIR}" "${GLUETUN_VOLUME_NAME}"
+
+if [[ -n "$(ls -A "${CONTAINER_NZBHYDRA2_CONFIG_DIR}" 2>/dev/null || true)" ]]; then
+  echo "[INFO] Synchronizing ${CONTAINER_NZBHYDRA2_CONFIG_DIR} to Docker volume ${NZBHYDRA2_VOLUME_NAME}"
+  sync_dir_to_volume "${CONTAINER_NZBHYDRA2_CONFIG_DIR}" "${NZBHYDRA2_VOLUME_NAME}"
+fi
 
 cat > "${COMPOSE_FILE}" <<EOF
 services:
@@ -63,7 +67,7 @@ services:
       - VPN_TYPE=wireguard
       - FIREWALL_VPN_INPUT_PORTS=${WEBUI_PORT}
     volumes:
-      - ${HOST_GLUETUN_CONFIG_DIR}:/gluetun
+      - ${GLUETUN_VOLUME_NAME}:/gluetun
     ports:
       - "${WEBUI_PORT}:5076"
 
@@ -79,7 +83,7 @@ services:
       - PUID=0
       - PGID=0
     volumes:
-      - ${HOST_NZBHYDRA2_CONFIG_DIR}:/config
+      - ${NZBHYDRA2_VOLUME_NAME}:/config
 EOF
 
 echo "[INFO] Starting Gluetun + NZBHydra2 stack"
