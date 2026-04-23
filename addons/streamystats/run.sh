@@ -45,6 +45,15 @@ export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 export PORT="${PORT:-3001}"
 
+# Streamystats AIO pins nextjs to PORT=3000 in supervisord.conf.
+# Patch that at runtime so nginx can listen on 3000 and proxy to nextjs on 3001.
+for conf in /etc/supervisord.conf /etc/supervisor/conf.d/supervisord.conf /app/supervisord.conf; do
+  if [ -f "${conf}" ] && grep -q "\[program:nextjs\]" "${conf}"; then
+    sed -i '/\[program:nextjs\]/,/^\[program:/ s/PORT="3000"/PORT="3001"/' "${conf}"
+    echo "Patched nextjs port in ${conf}"
+  fi
+done
+
 INGRESS_ENTRY=""
 if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
   INGRESS_ENTRY="$({
