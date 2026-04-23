@@ -70,6 +70,11 @@ http {
     server_name _;
 
     proxy_hide_header X-Frame-Options;
+    proxy_hide_header Content-Security-Policy;
+    proxy_hide_header Content-Security-Policy-Report-Only;
+    proxy_hide_header Cross-Origin-Embedder-Policy;
+    proxy_hide_header Cross-Origin-Opener-Policy;
+    proxy_hide_header Cross-Origin-Resource-Policy;
 
     # Handle ingress requests where HA forwards the full prefix.
     location ~ ^/api/hassio_ingress/([^/]+)$ {
