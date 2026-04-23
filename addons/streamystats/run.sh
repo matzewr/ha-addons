@@ -69,20 +69,22 @@ http {
     # Home Assistant ingress requests are prefixed with:
     # /api/hassio_ingress/<token>/...
     # Strip that prefix so the upstream app sees plain routes (/setup, /api/*, ...).
-    location ~ ^/api/hassio_ingress/[^/]+$ {
-      return 302 /;
+    location ~ ^/api/hassio_ingress/([^/]+)$ {
+      return 302 /api/hassio_ingress/$1/;
     }
 
-    location ~ ^/api/hassio_ingress/[^/]+/(.*)$ {
-      rewrite ^/api/hassio_ingress/[^/]+/(.*)$ /$1 break;
+    location ~ ^/api/hassio_ingress/([^/]+)/(.*)$ {
+      set $ingress_base /api/hassio_ingress/$1;
       proxy_http_version 1.1;
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
       proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Ingress-Path $ingress_base;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
-      proxy_pass http://127.0.0.1:3000;
+      proxy_redirect ~^(/.*)$ $ingress_base$1;
+      proxy_pass http://127.0.0.1:3000/$2$is_args$args;
     }
 
     location / {
