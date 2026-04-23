@@ -55,7 +55,7 @@ events {
 }
 
 http {
-  map \$http_upgrade \$connection_upgrade {
+  map $http_upgrade $connection_upgrade {
     default upgrade;
     '' close;
   }
