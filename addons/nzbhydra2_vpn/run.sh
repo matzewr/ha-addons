@@ -7,7 +7,7 @@ COMPOSE_FILE="${STACK_DIR}/docker-compose.yaml"
 CONTAINER_CONFIG_DIR="/config"
 CONTAINER_GLUETUN_CONFIG_DIR="${CONTAINER_CONFIG_DIR}/gluetun"
 CONTAINER_NZBHYDRA2_CONFIG_DIR="${CONTAINER_CONFIG_DIR}/nzbhydra2"
-WG_CONFIG_FILE="${CONTAINER_GLUETUN_CONFIG_DIR}/wg0.conf"
+WG_CONFIG_FILE="${CONTAINER_GLUETUN_CONFIG_DIR}/wireguard/wg0.conf"
 GLUETUN_VOLUME_NAME="ha_nzbhydra2_vpn_gluetun"
 NZBHYDRA2_VOLUME_NAME="ha_nzbhydra2_vpn_nzbhydra2"
 
@@ -65,7 +65,6 @@ services:
       - TZ=${TZ_VALUE}
       - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=wireguard
-      - FIREWALL_VPN_INPUT_PORTS=${WEBUI_PORT}
     volumes:
       - ${GLUETUN_VOLUME_NAME}:/gluetun
     ports:
@@ -77,7 +76,8 @@ services:
     restart: unless-stopped
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
+      gluetun:
+        condition: service_healthy
     environment:
       - TZ=${TZ_VALUE}
       - PUID=0

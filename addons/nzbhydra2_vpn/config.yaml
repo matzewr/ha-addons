@@ -1,5 +1,5 @@
 name: NZBHydra2 + Gluetun
-version: 0.1.5
+version: 0.1.6
 slug: nzbhydra2_vpn
 description: Home Assistant Add-on scaffold with Gluetun and NZBHydra2 containers
 url: https://github.com/matzewr/ha-addons
