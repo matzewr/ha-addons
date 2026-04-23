@@ -9,11 +9,25 @@ read_option() {
     local key="$1"
     local default="$2"
 
-    if [ -f "${OPTIONS_FILE}" ]; then
-        jq -r --arg key "${key}" --arg def "${default}" '.[$key] // $def' "${OPTIONS_FILE}"
-    else
+    if [ ! -f "${OPTIONS_FILE}" ]; then
         printf '%s' "${default}"
+        return
     fi
+
+    local value
+    value="$(sed -n -E 's/.*"'"${key}"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' "${OPTIONS_FILE}" | head -n1)"
+    if [ -n "${value}" ]; then
+        printf '%s' "${value}"
+        return
+    fi
+
+    value="$(sed -n -E 's/.*"'"${key}"'"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "${OPTIONS_FILE}" | head -n1)"
+    if [ -n "${value}" ]; then
+        printf '%s' "${value}"
+        return
+    fi
+
+    printf '%s' "${default}"
 }
 
 PUID="$(read_option "PUID" "1000")"
@@ -78,14 +92,14 @@ for _ in $(seq 1 90); do
         wait "${GLUETUN_PID}" || true
         exit 1
     fi
-    if ip link show wg0 >/dev/null 2>&1; then
+    if grep -q '^ *wg0:' /proc/net/dev 2>/dev/null; then
         echo "[info] WireGuard interface wg0 is up"
         break
     fi
     sleep 1
 done
 
-if ! ip link show wg0 >/dev/null 2>&1; then
+if ! grep -q '^ *wg0:' /proc/net/dev 2>/dev/null; then
     echo "[error] WireGuard interface wg0 did not come up in time"
     exit 1
 fi

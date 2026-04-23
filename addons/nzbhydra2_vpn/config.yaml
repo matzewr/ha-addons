@@ -2,7 +2,7 @@ name: NZBHydra2 VPN
 version: 1.0.0
 slug: nzbhydra2_vpn
 description: NZBHydra2 routed through Gluetun WireGuard VPN
-url: https://github.com/matthiaswuerstle/ha-addons
+url: https://github.com/matzewr/ha-addons
 webui: http://[HOST]:[PORT:5076]
 arch:
   - amd64
@@ -43,4 +43,4 @@ schema:
   WG_PUBLIC_KEY: str
   WG_ALLOWED_IPS: str
   WG_ENDPOINT: str
-image: ghcr.io/matthiaswuerstle/nzbhydra2-vpn
+image: ghcr.io/matzewr/nzbhydra2-vpn
