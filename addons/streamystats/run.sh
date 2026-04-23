@@ -45,25 +45,9 @@ export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 export PORT="${PORT:-3000}"
 
-INGRESS_ENTRY=""
-if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
-  INGRESS_ENTRY="$({
-    curl -fsSL \
-      -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-      "http://supervisor/addons/self/info" || true
-  } | tr -d '\n' | sed -n 's/.*"ingress_entry":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')"
-fi
-
-if [ -n "${INGRESS_ENTRY}" ]; then
-  INGRESS_ENTRY="/${INGRESS_ENTRY#/}"
-  INGRESS_ENTRY="${INGRESS_ENTRY%/}"
-  echo "Detected ingress entry: ${INGRESS_ENTRY}"
-fi
-
 mkdir -p /run/nginx /tmp/nginx
 
-if [ -n "${INGRESS_ENTRY}" ]; then
-  cat >/tmp/nginx/nginx.conf <<EOF
+cat >/tmp/nginx/nginx.conf <<'EOF'
 worker_processes 1;
 
 events {
@@ -82,55 +66,24 @@ http {
 
     proxy_hide_header X-Frame-Options;
 
-    location = ${INGRESS_ENTRY} {
-      return 302 ${INGRESS_ENTRY}/;
+    # Home Assistant ingress requests are prefixed with:
+    # /api/hassio_ingress/<token>/...
+    # Strip that prefix so the upstream app sees plain routes (/setup, /api/*, ...).
+    location ~ ^/api/hassio_ingress/[^/]+$ {
+      return 302 /;
     }
 
-    location ^~ ${INGRESS_ENTRY}/ {
-      rewrite ^${INGRESS_ENTRY}(/.*)$ \$1 break;
+    location ~ ^/api/hassio_ingress/[^/]+/(.*)$ {
+      rewrite ^/api/hassio_ingress/[^/]+/(.*)$ /$1 break;
       proxy_http_version 1.1;
-      proxy_set_header Host \$host;
-      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto \$scheme;
-      proxy_set_header X-Real-IP \$remote_addr;
-      proxy_set_header X-Ingress-Path ${INGRESS_ENTRY};
-      proxy_set_header Upgrade \$http_upgrade;
-      proxy_set_header Connection \$connection_upgrade;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
       proxy_pass http://127.0.0.1:3000;
     }
-
-    location / {
-      proxy_http_version 1.1;
-      proxy_set_header Host \$host;
-      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto \$scheme;
-      proxy_set_header X-Real-IP \$remote_addr;
-      proxy_set_header Upgrade \$http_upgrade;
-      proxy_set_header Connection \$connection_upgrade;
-      proxy_pass http://127.0.0.1:3000;
-    }
-  }
-}
-EOF
-else
-  cat >/tmp/nginx/nginx.conf <<'EOF'
-worker_processes 1;
-
-events {
-  worker_connections 1024;
-}
-
-http {
-  map $http_upgrade $connection_upgrade {
-    default upgrade;
-    '' close;
-  }
-
-  server {
-    listen 8099;
-    server_name _;
-
-    proxy_hide_header X-Frame-Options;
 
     location / {
       proxy_http_version 1.1;
@@ -145,7 +98,6 @@ http {
   }
 }
 EOF
-fi
 
 nginx -c /tmp/nginx/nginx.conf
 
