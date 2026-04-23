@@ -1,6 +1,6 @@
 {
   "name": "StreamyStats",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "slug": "streamystats",
   "description": "StreamyStats Home Assistant Add-on",
   "arch": ["amd64", "armv7", "armhf", "aarch64"],
