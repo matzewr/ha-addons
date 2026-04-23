@@ -10,7 +10,7 @@
     "3000/tcp": 3000
   },
   "environment": {},
-  "map": ["config:rw", "share:rw"],
+  "map": ["data:rw"],
   "options": {
     "POSTGRES_USER": "postgres",
     "POSTGRES_PASSWORD": "postgres",
