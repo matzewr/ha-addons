@@ -84,6 +84,12 @@ services:
       - PGID=0
     volumes:
       - ${NZBHYDRA2_VOLUME_NAME}:/config
+
+volumes:
+  ${GLUETUN_VOLUME_NAME}:
+    name: ${GLUETUN_VOLUME_NAME}
+  ${NZBHYDRA2_VOLUME_NAME}:
+    name: ${NZBHYDRA2_VOLUME_NAME}
 EOF
 
 echo "[INFO] Starting Gluetun + NZBHydra2 stack"
