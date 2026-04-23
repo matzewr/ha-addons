@@ -60,33 +60,36 @@ http {
     '' close;
   }
 
+  map $http_x_ingress_path $redirect_prefix {
+    default "";
+    ~^/api/hassio_ingress/.+ $http_x_ingress_path;
+  }
+
   server {
     listen 8099;
     server_name _;
 
     proxy_hide_header X-Frame-Options;
 
-    # Home Assistant ingress requests are prefixed with:
-    # /api/hassio_ingress/<token>/...
-    # Strip that prefix so the upstream app sees plain routes (/setup, /api/*, ...).
+    # Handle ingress requests where HA forwards the full prefix.
     location ~ ^/api/hassio_ingress/([^/]+)$ {
       return 302 /api/hassio_ingress/$1/;
     }
 
     location ~ ^/api/hassio_ingress/([^/]+)/(.*)$ {
-      set $ingress_base /api/hassio_ingress/$1;
       proxy_http_version 1.1;
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
       proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Ingress-Path $ingress_base;
+      proxy_set_header X-Ingress-Path /api/hassio_ingress/$1;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
-      proxy_redirect ~^(/.*)$ $ingress_base$1;
+      proxy_redirect ~^(/.*)$ $redirect_prefix$1;
       proxy_pass http://127.0.0.1:3000/$2$is_args$args;
     }
 
+    # Handle direct URL access and ingress requests where HA already strips prefix.
     location / {
       proxy_http_version 1.1;
       proxy_set_header Host $host;
@@ -95,6 +98,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
+      proxy_redirect ~^(/.*)$ $redirect_prefix$1;
       proxy_pass http://127.0.0.1:3000;
     }
   }
