@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "slug": "streamystats",
   "description": "StreamyStats Home Assistant Add-on",
-  "arch": ["amd64", "armv7", "armhf"],
+  "arch": ["amd64", "armv7", "armhf", "aarch64"],
   "startup": "services",
   "boot": "auto",
   "ports": {
