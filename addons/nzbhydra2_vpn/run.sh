@@ -4,7 +4,7 @@ set -euo pipefail
 OPTIONS_FILE="/data/options.json"
 STACK_DIR="/tmp/nzbhydra2-vpn-stack"
 COMPOSE_FILE="${STACK_DIR}/docker-compose.yaml"
-BASE_CONFIG_DIR="/addon_config"
+BASE_CONFIG_DIR="/config"
 GLUETUN_CONFIG_DIR="${BASE_CONFIG_DIR}/gluetun"
 NZBHYDRA2_CONFIG_DIR="${BASE_CONFIG_DIR}/nzbhydra2"
 WG_CONFIG_FILE="${GLUETUN_CONFIG_DIR}/wg0.conf"

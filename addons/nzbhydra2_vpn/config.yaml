@@ -22,5 +22,7 @@ ports:
 ports_description:
   5076/tcp: NZBHydra2 Web UI
 map:
-  - addon_config:rw
+  - type: addon_config
+    read_only: false
+    path: /config
 image: ghcr.io/matzewr/nzbhydra2-vpn
