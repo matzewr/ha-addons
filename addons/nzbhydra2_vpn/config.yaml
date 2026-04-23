@@ -43,3 +43,4 @@ schema:
   WG_PUBLIC_KEY: str
   WG_ALLOWED_IPS: str
   WG_ENDPOINT: str
+image: ghcr.io/matthiaswuerstle/nzbhydra2-vpn
