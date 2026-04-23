@@ -1,5 +1,5 @@
 name: Streamystats
-version: 0.1.9
+version: 0.2.0
 slug: streamystats
 description: Jellyfin analytics platform powered by Streamystats AIO.
 url: https://github.com/fredrikburmester/streamystats
@@ -18,7 +18,7 @@ webui: http://[HOST]:[PORT:3000]
 panel_title: Streamystats
 panel_icon: mdi:chart-line
 ingress: true
-ingress_port: 3000
+ingress_port: 8099
 ingress_stream: true
 host_network: false
 init: false

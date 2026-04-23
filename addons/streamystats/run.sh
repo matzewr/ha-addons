@@ -43,24 +43,7 @@ set +a
 
 export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
-export PORT="${PORT:-3001}"
-
-# Hard override the upstream nextjs wrapper so nextjs always binds to 3001.
-if [ -f /app/scripts/nextjs-wrapper.sh ]; then
-  cat >/app/scripts/nextjs-wrapper.sh <<'EOF'
-#!/bin/bash
-echo "[AIO] Waiting for job-server to be ready..."
-until curl -sf http://localhost:3005/health >/dev/null 2>&1; do
-  sleep 1
-done
-echo "[AIO] Starting Next.js on port 3001..."
-cd /app/apps/nextjs-app
-export PORT=3001
-exec node server.js
-EOF
-  chmod a+rx /app/scripts/nextjs-wrapper.sh
-  echo "Overrode /app/scripts/nextjs-wrapper.sh to enforce PORT=3001"
-fi
+export PORT="${PORT:-3000}"
 
 INGRESS_ENTRY=""
 if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
@@ -94,7 +77,7 @@ http {
   }
 
   server {
-    listen 3000;
+    listen 8099;
     server_name _;
 
     proxy_hide_header X-Frame-Options;
@@ -113,7 +96,7 @@ http {
       proxy_set_header X-Ingress-Path ${INGRESS_ENTRY};
       proxy_set_header Upgrade \$http_upgrade;
       proxy_set_header Connection \$connection_upgrade;
-      proxy_pass http://127.0.0.1:3001;
+      proxy_pass http://127.0.0.1:3000;
     }
 
     location / {
@@ -124,7 +107,7 @@ http {
       proxy_set_header X-Real-IP \$remote_addr;
       proxy_set_header Upgrade \$http_upgrade;
       proxy_set_header Connection \$connection_upgrade;
-      proxy_pass http://127.0.0.1:3001;
+      proxy_pass http://127.0.0.1:3000;
     }
   }
 }
@@ -144,7 +127,7 @@ http {
   }
 
   server {
-    listen 3000;
+    listen 8099;
     server_name _;
 
     proxy_hide_header X-Frame-Options;
@@ -157,7 +140,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
-      proxy_pass http://127.0.0.1:3001;
+      proxy_pass http://127.0.0.1:3000;
     }
   }
 }
