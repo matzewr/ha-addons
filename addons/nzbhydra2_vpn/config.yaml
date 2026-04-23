@@ -1,0 +1,45 @@
+name: NZBHydra2 VPN
+version: 1.0.0
+slug: nzbhydra2_vpn
+description: NZBHydra2 routed through Gluetun WireGuard VPN
+url: https://github.com/matthiaswuerstle/ha-addons
+webui: http://[HOST]:[PORT:5076]
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: auto
+init: false
+apparmor: false
+privileged:
+  - NET_ADMIN
+devices:
+  - /dev/net/tun
+map:
+  - type: addon_config
+    read_only: false
+    path: /config
+ports:
+  5076/tcp: 5076
+ports_description:
+  5076/tcp: NZBHydra2 Web UI
+options:
+  PUID: 1000
+  PGID: 1000
+  TZ: Europe/Berlin
+  WG_PRIVATE_KEY: ""
+  WG_ADDRESS: ""
+  WG_DNS: ""
+  WG_PUBLIC_KEY: ""
+  WG_ALLOWED_IPS: ""
+  WG_ENDPOINT: ""
+schema:
+  PUID: int
+  PGID: int
+  TZ: str
+  WG_PRIVATE_KEY: str
+  WG_ADDRESS: str
+  WG_DNS: str
+  WG_PUBLIC_KEY: str
+  WG_ALLOWED_IPS: str
+  WG_ENDPOINT: str
