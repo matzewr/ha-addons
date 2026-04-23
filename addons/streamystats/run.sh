@@ -45,18 +45,21 @@ export NODE_ENV="${NODE_ENV:-production}"
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 export PORT="${PORT:-3001}"
 
-# Streamystats AIO pins nextjs to PORT=3000.
-# Patch all known supervisor config files and wrapper script so nginx can own 3000.
-for conf in /etc/supervisord.conf /etc/supervisor/conf.d/*.conf /app/supervisord.conf; do
-  if [ -f "${conf}" ] && grep -q "\[program:nextjs\]" "${conf}"; then
-    sed -i '/\[program:nextjs\]/,/^\[program:/ s/PORT="3000"/PORT="3001"/' "${conf}"
-    echo "Patched nextjs port in ${conf}"
-  fi
-done
-
+# Hard override the upstream nextjs wrapper so nextjs always binds to 3001.
 if [ -f /app/scripts/nextjs-wrapper.sh ]; then
-  sed -i 's/exec node server\.js/PORT=3001 exec node server.js/' /app/scripts/nextjs-wrapper.sh
-  echo "Patched /app/scripts/nextjs-wrapper.sh to use PORT=3001"
+  cat >/app/scripts/nextjs-wrapper.sh <<'EOF'
+#!/bin/bash
+echo "[AIO] Waiting for job-server to be ready..."
+until curl -sf http://localhost:3005/health >/dev/null 2>&1; do
+  sleep 1
+done
+echo "[AIO] Starting Next.js on port 3001..."
+cd /app/apps/nextjs-app
+export PORT=3001
+exec node server.js
+EOF
+  chmod a+rx /app/scripts/nextjs-wrapper.sh
+  echo "Overrode /app/scripts/nextjs-wrapper.sh to enforce PORT=3001"
 fi
 
 INGRESS_ENTRY=""
@@ -71,7 +74,6 @@ fi
 if [ -n "${INGRESS_ENTRY}" ]; then
   INGRESS_ENTRY="/${INGRESS_ENTRY#/}"
   INGRESS_ENTRY="${INGRESS_ENTRY%/}"
-  export NEXT_PUBLIC_BASE_PATH="${INGRESS_ENTRY}"
   echo "Detected ingress entry: ${INGRESS_ENTRY}"
 fi
 
@@ -102,6 +104,19 @@ http {
     }
 
     location ^~ ${INGRESS_ENTRY}/ {
+      rewrite ^${INGRESS_ENTRY}(/.*)$ \$1 break;
+      proxy_http_version 1.1;
+      proxy_set_header Host \$host;
+      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto \$scheme;
+      proxy_set_header X-Real-IP \$remote_addr;
+      proxy_set_header X-Ingress-Path ${INGRESS_ENTRY};
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection \$connection_upgrade;
+      proxy_pass http://127.0.0.1:3001;
+    }
+
+    location / {
       proxy_http_version 1.1;
       proxy_set_header Host \$host;
       proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -110,14 +125,6 @@ http {
       proxy_set_header Upgrade \$http_upgrade;
       proxy_set_header Connection \$connection_upgrade;
       proxy_pass http://127.0.0.1:3001;
-    }
-
-    location = / {
-      return 302 ${INGRESS_ENTRY}/;
-    }
-
-    location / {
-      return 302 ${INGRESS_ENTRY}\$request_uri;
     }
   }
 }
