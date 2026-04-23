@@ -10,8 +10,7 @@ ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/streamystats
 ENV SESSION_SECRET=supersecret
 ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=supersecretkey
 
-COPY docker-entrypoint-ha.sh /usr/local/bin/docker-entrypoint-ha.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint-ha.sh
+COPY --chmod=755 docker-entrypoint-ha.sh /usr/local/bin/docker-entrypoint-ha.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint-ha.sh"]
 
