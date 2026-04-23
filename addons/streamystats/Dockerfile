@@ -6,7 +6,7 @@ ENV PGDATA=/data/pgdata
 ENV POSTGRES_USER=postgres
 ENV POSTGRES_PASSWORD=postgres
 ENV POSTGRES_DB=streamystats
-ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/streamystats
+ENV DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}
 ENV SESSION_SECRET=supersecret
 ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=supersecretkey
 
