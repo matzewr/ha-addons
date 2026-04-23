@@ -1,5 +1,5 @@
 name: NZBHydra2 VPN
-version: 1.0.1
+version: 1.0.2
 slug: nzbhydra2_vpn
 description: NZBHydra2 routed through Gluetun WireGuard VPN
 url: https://github.com/matzewr/ha-addons
