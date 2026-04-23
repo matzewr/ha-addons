@@ -1,46 +1,26 @@
-name: NZBHydra2 VPN
-version: 1.0.2
+name: NZBHydra2 + Gluetun
+version: 0.1.0
 slug: nzbhydra2_vpn
-description: NZBHydra2 routed through Gluetun WireGuard VPN
+description: Home Assistant Add-on scaffold with Gluetun and NZBHydra2 containers
 url: https://github.com/matzewr/ha-addons
-webui: http://[HOST]:[PORT:5076]
 arch:
   - amd64
   - aarch64
 startup: services
 boot: auto
 init: false
-apparmor: false
-privileged:
-  - NET_ADMIN
-devices:
-  - /dev/net/tun
-map:
-  - type: addon_config
-    read_only: false
-    path: /config
+docker_api: true
+options:
+  TZ: Europe/Berlin
+  WEBUI_PORT: 5076
+schema:
+  TZ: str
+  WEBUI_PORT: port
+  SERVER_COUNTRIES: str?
 ports:
-  5076/tcp: 5076
+  5076/tcp: null
 ports_description:
   5076/tcp: NZBHydra2 Web UI
-options:
-  PUID: 1000
-  PGID: 1000
-  TZ: Europe/Berlin
-  WG_PRIVATE_KEY: ""
-  WG_ADDRESS: ""
-  WG_DNS: ""
-  WG_PUBLIC_KEY: ""
-  WG_ALLOWED_IPS: ""
-  WG_ENDPOINT: ""
-schema:
-  PUID: int
-  PGID: int
-  TZ: str
-  WG_PRIVATE_KEY: str
-  WG_ADDRESS: str
-  WG_DNS: str
-  WG_PUBLIC_KEY: str
-  WG_ALLOWED_IPS: str
-  WG_ENDPOINT: str
+map:
+  - addon_config:rw
 image: ghcr.io/matzewr/nzbhydra2-vpn

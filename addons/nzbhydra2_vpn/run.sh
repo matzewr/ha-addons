@@ -1,108 +1,67 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 OPTIONS_FILE="/data/options.json"
-WG_TARGET_FILE="/gluetun/wireguard/wg0.conf"
-WG_USER_FILE="/config/wireguard/wg0.conf"
+STACK_DIR="/tmp/nzbhydra2-vpn-stack"
+COMPOSE_FILE="${STACK_DIR}/docker-compose.yaml"
+BASE_CONFIG_DIR="/addon_config/nzbhydra2_vpn"
+GLUETUN_CONFIG_DIR="${BASE_CONFIG_DIR}/gluetun"
+NZBHYDRA2_CONFIG_DIR="${BASE_CONFIG_DIR}/nzbhydra2"
+WG_CONFIG_FILE="${GLUETUN_CONFIG_DIR}/wg0.conf"
 
-read_option() {
-    local key="$1"
-    local default="$2"
+if [[ ! -f "${OPTIONS_FILE}" ]]; then
+  echo "[ERROR] ${OPTIONS_FILE} not found"
+  exit 1
+fi
 
-    if [ ! -f "${OPTIONS_FILE}" ]; then
-        printf '%s' "${default}"
-        return
-    fi
+TZ_VALUE="$(jq -r '.TZ // "UTC"' "${OPTIONS_FILE}")"
+WEBUI_PORT="$(jq -r '.WEBUI_PORT // 5076' "${OPTIONS_FILE}")"
+SERVER_COUNTRIES="$(jq -r '.SERVER_COUNTRIES // ""' "${OPTIONS_FILE}")"
 
-    local value
-    value="$(sed -n -E 's/.*"'"${key}"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' "${OPTIONS_FILE}" | head -n1)"
-    if [ -n "${value}" ]; then
-        printf '%s' "${value}"
-        return
-    fi
+mkdir -p "${STACK_DIR}" \
+         "${GLUETUN_CONFIG_DIR}" \
+         "${NZBHYDRA2_CONFIG_DIR}"
 
-    value="$(sed -n -E 's/.*"'"${key}"'"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "${OPTIONS_FILE}" | head -n1)"
-    if [ -n "${value}" ]; then
-        printf '%s' "${value}"
-        return
-    fi
+if [[ ! -f "${WG_CONFIG_FILE}" ]]; then
+  echo "[ERROR] WireGuard config not found: ${WG_CONFIG_FILE}"
+  echo "[ERROR] Lege die Datei wg0.conf in ${GLUETUN_CONFIG_DIR} ab."
+  exit 1
+fi
 
-    printf '%s' "${default}"
-}
+cat > "${COMPOSE_FILE}" <<EOF
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: ha-nzbhydra2-gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TZ=${TZ_VALUE}
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+      - FIREWALL_VPN_INPUT_PORTS=${WEBUI_PORT}
+    volumes:
+      - ${GLUETUN_CONFIG_DIR}:/gluetun
+    ports:
+      - "${WEBUI_PORT}:5076"
 
-PUID="$(read_option "PUID" "1000")"
-PGID="$(read_option "PGID" "1000")"
-TZ="$(read_option "TZ" "Europe/Berlin")"
-
-WG_PRIVATE_KEY="$(read_option "WG_PRIVATE_KEY" "")"
-WG_ADDRESS="$(read_option "WG_ADDRESS" "")"
-WG_DNS="$(read_option "WG_DNS" "198.18.0.1,198.18.0.2")"
-WG_PUBLIC_KEY="$(read_option "WG_PUBLIC_KEY" "")"
-WG_ALLOWED_IPS="$(read_option "WG_ALLOWED_IPS" "0.0.0.0/0")"
-WG_ENDPOINT="$(read_option "WG_ENDPOINT" "")"
-
-mkdir -p /gluetun/wireguard /config/wireguard
-
-if [ -s "${WG_USER_FILE}" ]; then
-    echo "[info] Using WireGuard file from ${WG_USER_FILE}"
-    cp "${WG_USER_FILE}" "${WG_TARGET_FILE}"
-else
-    missing=0
-    for value_name in WG_PRIVATE_KEY WG_ADDRESS WG_PUBLIC_KEY WG_ALLOWED_IPS WG_ENDPOINT; do
-        if [ -z "${!value_name}" ]; then
-            echo "[error] Missing required option: ${value_name}"
-            missing=1
-        fi
-    done
-    if [ "${missing}" -ne 0 ]; then
-        echo "[error] Provide /config/wireguard/wg0.conf or set the required WireGuard options in add-on configuration"
-        exit 1
-    fi
-
-    cat > "${WG_TARGET_FILE}" <<EOF
-[Interface]
-PrivateKey = ${WG_PRIVATE_KEY}
-Address = ${WG_ADDRESS}
-DNS = ${WG_DNS}
-
-[Peer]
-PublicKey = ${WG_PUBLIC_KEY}
-AllowedIPs = ${WG_ALLOWED_IPS}
-Endpoint = ${WG_ENDPOINT}
+  nzbhydra2:
+    image: lscr.io/linuxserver/nzbhydra2:latest
+    container_name: ha-nzbhydra2-app
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - TZ=${TZ_VALUE}
+      - PUID=0
+      - PGID=0
+    volumes:
+      - ${NZBHYDRA2_CONFIG_DIR}:/config
 EOF
-fi
 
-chmod 600 "${WG_TARGET_FILE}"
-
-export PUID
-export PGID
-export TZ
-
-export VPN_SERVICE_PROVIDER="custom"
-export VPN_TYPE="wireguard"
-export FIREWALL_INPUT_PORTS="5076"
-
-echo "[info] Starting Gluetun"
-/usr/local/bin/gluetun-entrypoint &
-GLUETUN_PID=$!
-
-for _ in $(seq 1 90); do
-    if ! kill -0 "${GLUETUN_PID}" 2>/dev/null; then
-        echo "[error] Gluetun exited unexpectedly"
-        wait "${GLUETUN_PID}" || true
-        exit 1
-    fi
-    if grep -q '^ *wg0:' /proc/net/dev 2>/dev/null; then
-        echo "[info] WireGuard interface wg0 is up"
-        break
-    fi
-    sleep 1
-done
-
-if ! grep -q '^ *wg0:' /proc/net/dev 2>/dev/null; then
-    echo "[error] WireGuard interface wg0 did not come up in time"
-    exit 1
-fi
-
-echo "[info] Starting NZBHydra2"
-exec /init
+echo "[INFO] Starting Gluetun + NZBHydra2 stack"
+exec docker compose -f "${COMPOSE_FILE}" up --remove-orphans
